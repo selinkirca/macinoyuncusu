@@ -56,19 +56,23 @@ def update_loop():
     while True:
         calculate_points()
         headers = {'X-Auth-Token': FB_API_KEY}
-        for code, comp_id in leagues.items():
-            url = f"https://api.football-data.org/v4/competitions/{comp_id}/matches?dateFrom={(datetime.now()-timedelta(days=3)).strftime('%Y-%m-%d')}&dateTo={(datetime.now()+timedelta(days=7)).strftime('%Y-%m-%d')}"
+        
+        # DÜZELTİLEN KISIM: Bu blok artık while True ve calculate_points() altında düzgünce girintili.
+        for code, competition_id in leagues.items():
+            if code == 'WC':
+                url = f"https://api.football-data.org/v4/competitions/{competition_id}/matches"
+            else:
+                url = f"https://api.football-data.org/v4/competitions/{competition_id}/matches?dateFrom={(datetime.now()-timedelta(days=3)).strftime('%Y-%m-%d')}&dateTo={(datetime.now()+timedelta(days=7)).strftime('%Y-%m-%d')}"
+            
             try:
                 r = requests.get(url, headers=headers)
                 if r.status_code == 200:
                     matches = r.json().get('matches', [])
                     for m in matches:
                         s = m.get('score', {})
-                        # SKOR ÇEKME MANTIĞINI GARANTİYE ALIYORUZ
-                        # fullTime yoksa regularTime, o da yoksa direkt score içindeki home/away
                         h = s.get('fullTime', {}).get('home')
                         if h is None: h = s.get('regularTime', {}).get('home')
-                        if h is None: h = s.get('home') # Bazı API versiyonları için
+                        if h is None: h = s.get('home')
                         
                         a = s.get('fullTime', {}).get('away')
                         if a is None: a = s.get('regularTime', {}).get('away')
@@ -81,8 +85,8 @@ def update_loop():
                             "status": m['status'],
                             "home_score": int(h) if h is not None else 0,
                             "away_score": int(a) if a is not None else 0,
-                            "home_logo": m['homeTeam']['crest'],
-                            "away_logo": m['awayTeam']['crest'],
+                            "home_logo": m['homeTeam'].get('crest'),
+                            "away_logo": m['awayTeam'].get('crest'),
                             "winner": s.get('winner'),
                             "match_time": m['utcDate'],
                             "competition_code": code
@@ -90,9 +94,13 @@ def update_loop():
                         supabase.table("matches").upsert(data).execute()
                     print(f"✅ {code} ligi güncellendi.")
                 elif r.status_code == 429:
+                    print("⚠️ Limit aşıldı, bekliyor...")
                     time.sleep(60)
                 time.sleep(6)
-            except Exception as e: print(f"Hata ({code}): {e}")
+            except Exception as e: 
+                print(f"Hata ({code}): {e}")
+        
+        print("😴 15 dakika bekleniyor...")
         time.sleep(900)
 
 if __name__ == "__main__":

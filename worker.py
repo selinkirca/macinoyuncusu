@@ -78,21 +78,27 @@ def update_loop():
                 if r.status_code == 200:
                     matches = r.json().get('matches', [])
                     for m in matches:
-                        # Skor verisini daha güvenli çekiyoruz
-                        ft_score = m.get('score', {}).get('fullTime', {})
-                        home_score = ft_score.get('home')
-                        away_score = ft_score.get('away')
+                        # worker.py içindeki ilgili kısmı şu şekilde değiştir:
+                        score_data = m.get('score', {})
+                        # Eğer maç canlıysa 'regularTime' veya 'fullTime' verisini dene
+                        home_score = score_data.get('fullTime', {}).get('home')
+                        away_score = score_data.get('fullTime', {}).get('away')
                         
-                        # Skor None ise (maç başlamadıysa) 0 olarak kaydet
+                        # Eğer fullTime boşsa (maç devam ediyorsa), canlı skoru almayı dene
+                        if home_score is None:
+                            home_score = score_data.get('regularTime', {}).get('home')
+                        if away_score is None:
+                            away_score = score_data.get('regularTime', {}).get('away')
+                        
                         data = {
                             "id": m['id'],
                             "home_team": m['homeTeam']['name'],
-                            "away_team": m['awayTeam']['name'], # Deplasman ismini de ekleyelim
+                            "away_team": m['awayTeam']['name'],
                             "status": m['status'],
                             "home_score": home_score if home_score is not None else 0,
                             "away_score": away_score if away_score is not None else 0,
-                            "winner": m.get('score', {}).get('winner'),
-                            "match_time": m['utcDate'], # BU ÇOK ÖNEMLİ: Listeleme için şart
+                            "winner": score_data.get('winner'),
+                            "match_time": m['utcDate'],
                             "competition_code": code
                         }
                         supabase.table("matches").upsert(data).execute()

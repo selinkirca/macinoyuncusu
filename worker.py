@@ -81,6 +81,8 @@ def update_loop():
                             "status": m['status'],
                             "home_score": int(h) if h is not None else 0,
                             "away_score": int(a) if a is not None else 0,
+                            "home_logo": m['homeTeam']['crest'],
+                            "away_logo": m['awayTeam']['crest'],
                             "winner": s.get('winner'),
                             "match_time": m['utcDate'],
                             "competition_code": code
